@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Codebreaker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>/* layout: centered single column; board scrolls, input docked below */
+:root{--bg:#F6F3EC;--surface:#FFFFFF;--ink:#1D1C1A;--muted:#7A766D;--line:#DDD8CC;--accent:#1D1C1A;--accent-ink:#F6F3EC;--empty:#E7E2D6;--danger:#C0392B;
+--display:'Fraunces',Georgia,serif;--body:'Hanken Grotesk',system-ui,sans-serif;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1B1B1D;--surface:#242427;--ink:#EEEBE4;--muted:#9A978F;--line:#37373B;--accent:#EEEBE4;--accent-ink:#1B1B1D;--empty:#2E2E32;--danger:#F0705F;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1B1B1D;--surface:#242427;--ink:#EEEBE4;--muted:#9A978F;--line:#37373B;--accent:#EEEBE4;--accent-ink:#1B1B1D;--empty:#2E2E32;--danger:#F0705F;color-scheme:dark}
+:root[data-contrast="1"]{--muted:var(--ink);--line:var(--ink)}
+*{box-sizing:border-box}
+html,body,#root{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+:focus-visible{outline:3px solid #4385D5;outline-offset:2px;border-radius:6px}
+.app{height:100%;max-width:560px;margin:0 auto;display:flex;flex-direction:column;padding:0 16px}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+.logo{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.14em;display:flex;gap:10px;align-items:center}
+.logo i{display:inline-flex;gap:3px}.logo i b{width:9px;height:9px;border-radius:50%;display:block}
+.ibtn{width:40px;height:40px;display:grid;place-items:center;border-radius:50%}
+.ibtn:hover{background:var(--empty)}
+.row{display:flex;align-items:center}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.info{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0 6px;flex-wrap:wrap}
+.chip{font-family:var(--display);font-size:18px;font-weight:600}
+.pips{display:flex;gap:3px;padding:2px 0 10px;flex-wrap:wrap}
+.pips span{height:4px;flex:1;min-width:6px;background:var(--empty);border-radius:2px}
+.pips span.on{background:var(--ink)}
+.board{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:6px 0}
+.guess{display:flex;align-items:center;gap:10px;animation:rise .22s ease-out}
+.guess .n{width:22px;text-align:right;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pegs{display:flex;gap:8px;flex:1;min-width:0}
+.fb{display:grid;gap:3px;justify-content:center;align-content:center}
+.fbw{width:56px;flex:none;display:flex;gap:6px;align-items:center;justify-content:flex-end;font-size:12px;font-variant-numeric:tabular-nums}
+.pk{width:12px;height:12px;display:grid;place-items:center;font-size:12px;line-height:1;animation:pop .25s ease-out both}
+.pk.ex{background:var(--ink);border-radius:2px;width:10px;height:10px}
+.pk.mp{width:10px;height:10px;border:2px solid var(--ink);border-radius:50%}
+.pk.no{width:4px;height:4px;background:var(--line);border-radius:50%}
+.tile{--s:44px;width:var(--s);height:var(--s);flex:none;border-radius:50%;display:grid;place-items:center;color:rgba(0,0,0,.55);font-size:calc(var(--s)*.38);line-height:1;position:relative;transition:transform .12s,background .15s}
+.tile.sm{--s:34px}
+.sym{opacity:.5}
+[data-contrast="1"] .sym{opacity:1;color:#000;font-weight:700}
+.slot{border:2px dashed var(--line);background:transparent}
+.slot.active{border:2px solid var(--ink)}
+.slot.filled{border:2px solid transparent}
+.slot.filled.active{border-color:var(--ink)}
+.slot:hover{transform:scale(1.04)}
+.input{padding:12px 0 14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:12px;align-items:center}
+.slots,.palette{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.palette .tile{--s:46px;cursor:pointer}
+.palette .tile:hover{transform:scale(1.1)}
+.palette .tile:active,.slot:active{transform:scale(.94)}
+.key{position:absolute;bottom:-6px;right:-2px;font-size:10px;color:var(--muted);background:var(--bg);border-radius:4px;padding:0 3px;line-height:14px}
+.btn{height:44px;padding:0 20px;border-radius:999px;border:1.5px solid var(--ink);font-weight:600;display:inline-flex;gap:8px;align-items:center;justify-content:center;transition:transform .1s,opacity .15s}
+.btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn:not(:disabled):active{transform:scale(.97)}
+.btn.ghost{border-color:var(--line)}
+.btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.err{color:var(--danger);font-size:13px;min-height:18px;text-align:center}
+.page{flex:1;overflow-y:auto;padding:18px 0 28px}
+h1,h2,h3{font-family:var(--display);margin:0;font-weight:600}
+h1{font-size:34px;line-height:1.1}h2{font-size:24px}h3{font-size:17px}
+.modes{display:flex;flex-direction:column;margin-top:18px;border-top:1px solid var(--line)}
+.mode{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 4px;border-bottom:1px solid var(--line);text-align:left;width:100%;transition:padding .15s}
+.mode:hover{padding-left:10px}
+.mode b{font-family:var(--display);font-size:20px;font-weight:600;display:block}
+.dots{display:flex;gap:4px}.dots i{width:10px;height:10px;border-radius:50%;display:block}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin:14px 0}
+.tab{padding:6px 14px;border-radius:999px;border:1px solid var(--line);font-size:14px}
+.tab[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0 22px}
+.stat b{font-family:var(--display);font-size:28px;display:block;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+.bars{display:flex;flex-direction:column;gap:5px}
+.bar{display:flex;gap:8px;align-items:center;font-size:13px;font-variant-numeric:tabular-nums}
+.bar i{display:block;height:20px;background:var(--ink);border-radius:3px;min-width:22px;color:var(--accent-ink);font-style:normal;padding:0 6px;line-height:20px;text-align:right}
+.bar i.z{background:var(--empty);color:var(--ink)}
+.list{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid var(--line);text-align:left;width:100%}
+.badge{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;border:1.5px solid var(--ink)}
+.badge.w{background:var(--ink);color:var(--bg)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:16px;z-index:20;animation:fade .15s}
+.modal{background:var(--surface);border-radius:12px;padding:22px;width:100%;max-width:440px;max-height:88vh;overflow-y:auto;border:1px solid var(--line);animation:rise .2s ease-out}
+.modal h2{margin-bottom:12px}
+.field{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.sw{width:46px;height:26px;border-radius:99px;background:var(--empty);border:1.5px solid var(--line);position:relative;flex:none;transition:background .15s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:var(--ink);transition:transform .15s}
+.sw[aria-checked="true"]{background:var(--ink)}
+.sw[aria-checked="true"]::after{transform:translateX(20px);background:var(--bg)}
+input[type=range]{width:100%;accent-color:var(--ink);height:28px}
+input[type=text]{height:40px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);padding:0 12px;font:inherit;width:100%}
+.cfg{margin:12px 0;padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.pick{display:flex;gap:8px;flex-wrap:wrap}
+.pick .tile{--s:40px;cursor:pointer;opacity:.28;border:2px solid transparent}
+.pick .tile[aria-pressed="true"]{opacity:1;border-color:var(--ink)}
+.result{text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center}
+.celebrate{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.celebrate i{position:absolute;top:-10px;width:8px;height:8px;border-radius:50%;animation:fall 1.4s ease-in forwards}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}}
+@keyframes fall{to{transform:translateY(520px) rotate(300deg);opacity:0}}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.shake{animation:shake .25s}
+.noanim *,.noanim *::before,.noanim *::after{animation-duration:.001s!important;animation-delay:0s!important;transition-duration:.001s!important}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001s!important;animation-delay:0s!important;transition-duration:.001s!important}}
+@media (max-width:420px){.tile{--s:38px}.palette .tile{--s:42px}.pegs{gap:6px}h1{font-size:28px}.stats{grid-template-columns:repeat(2,1fr)}}
+</style></head>
+<body><div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script>(function (root) {
+  const PALETTE = [
+    { id: 'red', name: 'Red', hex: '#E84D4D', sym: '●' },
+    { id: 'blue', name: 'Blue', hex: '#4385D5', sym: '▲' },
+    { id: 'green', name: 'Green', hex: '#45A36B', sym: '■' },
+    { id: 'yellow', name: 'Yellow', hex: '#E8C34A', sym: '◆' },
+    { id: 'purple', name: 'Purple', hex: '#9B65CE', sym: '★' },
+    { id: 'orange', name: 'Orange', hex: '#E58A43', sym: '✚' },
+    { id: 'teal', name: 'Teal', hex: '#2BB3B1', sym: '⬟' },
+    { id: 'pink', name: 'Pink', hex: '#E06AA6', sym: '▼' },
+    { id: 'brown', name: 'Brown', hex: '#9A6B4B', sym: '◖' },
+    { id: 'slate', name: 'Slate', hex: '#8E99A8', sym: '✖' },
+  ];
+  const LIMITS = { posMin: 3, posMax: 8, colMin: 4, colMax: 10, attMin: 4, attMax: 20 };
+  const ids = (n) => PALETTE.slice(0, n).map((c) => c.id);
+  const MODES = {
+    easy: { mode: 'easy', positionCount: 4, availableColors: ids(5), maxAttempts: 10, allowDuplicates: true },
+    classic: { mode: 'classic', positionCount: 4, availableColors: ids(6), maxAttempts: 10, allowDuplicates: true },
+    hard: { mode: 'hard', positionCount: 5, availableColors: ids(7), maxAttempts: 10, allowDuplicates: true },
+    expert: { mode: 'expert', positionCount: 6, availableColors: ids(8), maxAttempts: 12, allowDuplicates: true },
+  };
+
+  function validateConfig(c) {
+    const e = [];
+    if (!c || typeof c !== 'object') return ['Configuration is missing.'];
+    const { positionCount: p, availableColors: cols, maxAttempts: a, allowDuplicates: d } = c;
+    const isInt = Number.isInteger;
+    if (!isInt(p) || p < LIMITS.posMin || p > LIMITS.posMax) e.push(`Positions must be between ${LIMITS.posMin} and ${LIMITS.posMax}.`);
+    if (!Array.isArray(cols) || new Set(cols).size !== cols.length) e.push('Colors must be a list without repeats.');
+    else {
+      if (cols.length < LIMITS.colMin || cols.length > LIMITS.colMax) e.push(`Choose between ${LIMITS.colMin} and ${LIMITS.colMax} colors.`);
+      if (cols.some((x) => !PALETTE.some((pc) => pc.id === x))) e.push('One or more colors are not in the palette.');
+    }
+    if (!isInt(a) || a < LIMITS.attMin || a > LIMITS.attMax) e.push(`Attempts must be between ${LIMITS.attMin} and ${LIMITS.attMax}.`);
+    if (d === false && Array.isArray(cols) && isInt(p) && cols.length < p) e.push(`Without repeated colors you need at least ${p} colors (you have ${cols.length}).`);
+    if (!['easy', 'classic', 'hard', 'expert', 'custom'].includes(c.mode)) e.push('Unknown game mode.');
+    return e;
+  }
+
+  function generateSecret(config, rng) {
+    const r = rng || Math.random;
+    const errs = validateConfig(config);
+    if (errs.length) throw new Error(errs[0]);
+    const pool = config.availableColors.slice();
+    const out = [];
+    for (let i = 0; i < config.positionCount; i++) {
+      const k = Math.floor(r() * pool.length);
+      out.push(pool[k]);
+      if (!config.allowDuplicates) pool.splice(k, 1);
+    }
+    return out;
+  }
+
+  function evaluateGuess(secret, guess) {
+    let exact = 0;
+    const counts = {};
+    const gRest = [];
+    for (let i = 0; i < secret.length; i++) {
+      if (guess[i] === secret[i]) exact++;
+      else {
+        counts[secret[i]] = (counts[secret[i]] || 0) + 1;
+        gRest.push(guess[i]);
+      }
+    }
+    let misplaced = 0;
+    for (const g of gRest) {
+      if (counts[g] > 0) { counts[g]--; misplaced++; }
+    }
+    return { exact, misplaced, incorrect: secret.length - exact - misplaced };
+  }
+
+  function validateGuess(guess, config) {
+    if (!Array.isArray(guess) || guess.length !== config.positionCount) return { valid: false, error: `Fill all ${config.positionCount} positions.` };
+    if (guess.some((g) => !g)) return { valid: false, error: `Fill all ${config.positionCount} positions.` };
+    if (guess.some((g) => !config.availableColors.includes(g))) return { valid: false, error: 'That color is not in this game.' };
+    return { valid: true, error: null };
+  }
+  const checkWin = (secret, guess) => secret.length === guess.length && secret.every((c, i) => c === guess[i]);
+  const checkGameOver = (attempts, config) => attempts >= config.maxAttempts;
+
+  function emptyStats() {
+    return { played: 0, won: 0, lost: 0, winPct: 0, currentStreak: 0, maxStreak: 0, avgAttempts: 0, best: null, distribution: {} };
+  }
+  // history: completed games oldest -> newest: {won:boolean, attempts:number}
+  function calculateStatistics(history) {
+    const s = emptyStats();
+    let run = 0, sum = 0;
+    for (const g of history) {
+      s.played++;
+      if (g.won) {
+        s.won++; run++; sum += g.attempts;
+        s.maxStreak = Math.max(s.maxStreak, run);
+        s.best = s.best === null ? g.attempts : Math.min(s.best, g.attempts);
+        s.distribution[g.attempts] = (s.distribution[g.attempts] || 0) + 1;
+      } else { s.lost++; run = 0; }
+    }
+    s.currentStreak = run;
+    s.winPct = s.played ? Math.round((s.won / s.played) * 100) : 0;
+    s.avgAttempts = s.won ? Math.round((sum / s.won) * 10) / 10 : 0;
+    return s;
+  }
+
+  function configSummary(c) {
+    return `${c.positionCount} positions · ${c.availableColors.length} colors · ${c.maxAttempts} attempts · ${c.allowDuplicates ? 'repeats allowed' : 'no repeats'}`;
+  }
+  function shareText(game) {
+    const c = game.config;
+    const name = c.mode === 'custom' ? 'Custom' : c.mode[0].toUpperCase() + c.mode.slice(1);
+    const head = `CODEBREAKER ${name} ${game.won ? game.guesses.length : 'X'}/${c.maxAttempts}`;
+    const rows = game.guesses.map((g) => {
+      const f = g.fb;
+      return '🟩'.repeat(f.exact) + '🟨'.repeat(f.misplaced) + '⬛'.repeat(c.positionCount - f.exact - f.misplaced);
+    });
+    const lines = [head];
+    if (c.mode === 'custom') lines.push(configSummary(c));
+    lines.push('', ...rows);
+    return lines.join('\n');
+  }
+
+  const api = { PALETTE, LIMITS, MODES, validateConfig, generateSecret, evaluateGuess, validateGuess, checkWin, checkGameOver, calculateStatistics, emptyStats, configSummary, shareText };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CBEngine = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script type="text/babel" data-presets="react">const { useState, useEffect, useRef, useCallback, useMemo } = React;
+const E = window.CBEngine;
+const { PALETTE, MODES, LIMITS } = E;
+const colorOf = (id) => PALETTE.find((c) => c.id === id);
+const MODE_LIST = ['easy', 'classic', 'hard', 'expert'];
+const MODE_NAME = { easy: 'Easy', classic: 'Classic', hard: 'Hard', expert: 'Expert', custom: 'Custom' };
+
+/* ---------- storage ---------- */
+const K = { game: 'cb_game', history: 'cb_history', settings: 'cb_settings', configs: 'cb_configs', last: 'cb_last' };
+const load = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const del = (k) => { try { localStorage.removeItem(k); } catch (e) {} };
+const uid = () => Math.random().toString(36).slice(2, 9);
+const DEFAULT_PRESETS = [
+  { id: 'p1', name: 'Quick Challenge', positionCount: 4, availableColors: E.PALETTE.slice(0, 6).map((c) => c.id), maxAttempts: 6, allowDuplicates: true },
+  { id: 'p2', name: 'Logic Master', positionCount: 5, availableColors: E.PALETTE.slice(0, 7).map((c) => c.id), maxAttempts: 8, allowDuplicates: true },
+  { id: 'p3', name: 'Impossible', positionCount: 8, availableColors: E.PALETTE.slice(0, 10).map((c) => c.id), maxAttempts: 8, allowDuplicates: true },
+];
+const toConfig = (c) => ({ mode: 'custom', positionCount: c.positionCount, availableColors: c.availableColors.slice(), maxAttempts: c.maxAttempts, allowDuplicates: c.allowDuplicates });
+const validGame = (g) => g && g.config && E.validateConfig(g.config).length === 0 && Array.isArray(g.secret) && g.secret.length === g.config.positionCount && Array.isArray(g.guesses);
+
+/* ---------- sound ---------- */
+let actx;
+function beep(on, f = 440, d = 0.07) {
+  if (!on) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.frequency.value = f; o.type = 'sine'; g.gain.value = 0.05;
+    o.connect(g); g.connect(actx.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + d); o.stop(actx.currentTime + d);
+  } catch (e) {}
+}
+
+/* ---------- small components ---------- */
+const I = ({ d, size = 20 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>;
+const ICONS = {
+  stats: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+  history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
+  gear: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>,
+  help: <><circle cx="12" cy="12" r="10" /><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01" /></>,
+  home: <><path d="M3 11l9-8 9 8M5 10v10h14V10" /></>,
+  x: <><path d="M18 6L6 18M6 6l12 12" /></>,
+  back: <><path d="M15 18l-6-6 6-6" /></>,
+  share: <><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13" /></>,
+  redo: <><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" /></>,
+};
+const Ic = ({ n, size }) => <I d={ICONS[n]} size={size} />;
+
+function Tile({ id, size, label, ...p }) {
+  const c = id && colorOf(id);
+  const cls = 'tile' + (size === 'sm' ? ' sm' : '') + (p.className ? ' ' + p.className : '');
+  return <div {...p} className={cls} style={{ background: c ? c.hex : undefined, ...p.style }}>{c && <span className="sym" aria-hidden="true">{c.sym}</span>}{p.children}</div>;
+}
+
+function Feedback({ fb, positions, reveal = true }) {
+  const items = [];
+  for (let i = 0; i < fb.exact; i++) items.push('ex');
+  for (let i = 0; i < fb.misplaced; i++) items.push('mp');
+  while (items.length < positions) items.push('no');
+  const cols = positions > 4 ? Math.ceil(positions / 2) : positions <= 3 ? positions : 2;
+  return (
+    <div className="fbw" role="img" aria-label={`${fb.exact} exact, ${fb.misplaced} misplaced`}>
+      <div className="fb" style={{ gridTemplateColumns: `repeat(${positions > 4 ? Math.ceil(positions / 2) : 2},12px)` }}>
+        {items.map((t, i) => <span key={i} className={'pk ' + t} style={{ animationDelay: reveal ? i * 60 + 'ms' : '0ms' }} />)}
+      </div>
+    </div>
+  );
+}
+function GuessRow({ g, n, positions, reveal }) {
+  return (
+    <div className="guess" role="listitem" aria-label={`Attempt ${n}: ${g.guess.map((x) => colorOf(x).name).join(', ')}. ${g.fb.exact} exact, ${g.fb.misplaced} misplaced.`}>
+      <span className="n">{n}</span>
+      <div className="pegs">{g.guess.map((c, i) => <Tile key={i} id={c} size={positions > 5 ? 'sm' : undefined} />)}</div>
+      <Feedback fb={g.fb} positions={positions} reveal={reveal} />
+    </div>
+  );
+}
+function Modal({ title, onClose, children, wide }) {
+  useEffect(() => { const f = (e) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', f); return () => window.removeEventListener('keydown', f); }, [onClose]);
+  return (
+    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+        <div className="row" style={{ justifyContent: 'space-between' }}><h2>{title}</h2><button className="ibtn" aria-label="Close" onClick={onClose}><Ic n="x" /></button></div>
+        {children}
+      </div>
+    </div>
+  );
+}
+function Confirm({ text, onYes, onNo, yes = 'Confirm' }) {
+  return <Modal title="Are you sure?" onClose={onNo}><p>{text}</p><div className="btns"><button className="btn ghost" onClick={onNo}>Cancel</button><button className="btn pri" onClick={onYes}>{yes}</button></div></Modal>;
+}
+function Switch({ on, set, label, id }) {
+  return <div className="field"><label htmlFor={id}>{label}</label><button id={id} role="switch" aria-checked={on} className="sw" onClick={() => set(!on)} /></div>;
+}
+
+/* ---------- App ---------- */
+function App() {
+  const [settings, setSettings] = useState(() => ({ theme: 'auto', sound: true, anim: true, contrast: false, ...load(K.settings, {}) }));
+  const [history, setHistory] = useState(() => load(K.history, []));
+  const [configs, setConfigs] = useState(() => { const c = load(K.configs, null); return c || DEFAULT_PRESETS; });
+  const [game, setGame] = useState(() => { const g = load(K.game, null); return validGame(g) ? g : null; });
+  const [screen, setScreen] = useState('menu'); // menu|game|stats|history|review|custom
+  const [modal, setModal] = useState(null); // settings|help|confirm obj
+  const [review, setReview] = useState(null);
+  const [lastMode, setLastMode] = useState(() => load(K.last, 'classic'));
+  const [editing, setEditing] = useState(null);
+
+  useEffect(() => save(K.settings, settings), [settings]);
+  useEffect(() => save(K.history, history), [history]);
+  useEffect(() => save(K.configs, configs), [configs]);
+  useEffect(() => { game ? save(K.game, game) : del(K.game); }, [game]);
+  useEffect(() => save(K.last, lastMode), [lastMode]);
+  useEffect(() => {
+    const r = document.documentElement;
+    settings.theme === 'auto' ? r.removeAttribute('data-theme') : r.setAttribute('data-theme', settings.theme);
+    settings.contrast ? r.setAttribute('data-contrast', '1') : r.removeAttribute('data-contrast');
+    document.body.classList.toggle('noanim', !settings.anim);
+  }, [settings]);
+  const up = (p) => setSettings((s) => ({ ...s, ...p }));
+
+  const start = (config) => {
+    const errs = E.validateConfig(config);
+    if (errs.length) return errs;
+    setGame({ id: uid(), config, secret: E.generateSecret(config), guesses: [], status: 'playing', startedAt: Date.now() });
+    if (config.mode !== 'custom') setLastMode(config.mode);
+    setScreen('game');
+    return [];
+  };
+  const startGuarded = (config) => {
+    if (game && game.status === 'playing' && game.guesses.length > 0) setModal({ confirm: true, text: 'Your current game is unfinished and will be abandoned. It will not count in your statistics.', yes: 'Start new game', onYes: () => { setModal(null); start(config); } });
+    else start(config);
+  };
+  const finish = (g) => {
+    const rec = { id: g.id, config: g.config, secret: g.secret, guesses: g.guesses, won: g.status === 'won', attempts: g.guesses.length, finishedAt: Date.now() };
+    setHistory((h) => [...h, rec]);
+  };
+  const submit = (guess) => {
+    const v = E.validateGuess(guess, game.config);
+    if (!v.valid) return v.error;
+    const fb = E.evaluateGuess(game.secret, guess);
+    const guesses = [...game.guesses, { guess, fb }];
+    const won = E.checkWin(game.secret, guess);
+    const over = !won && E.checkGameOver(guesses.length, game.config);
+    const g = { ...game, guesses, status: won ? 'won' : over ? 'lost' : 'playing' };
+    setGame(g);
+    if (won || over) finish(g);
+    beep(settings.sound, won ? 880 : over ? 180 : 440 + fb.exact * 60);
+    return null;
+  };
+  const menu = () => setScreen('menu');
+  const finished = game && game.status !== 'playing';
+  const share = async (g) => {
+    const text = E.shareText(g);
+    try { if (navigator.share) { await navigator.share({ text }); return 'Shared'; } } catch (e) { if (e && e.name === 'AbortError') return ''; }
+    try { await navigator.clipboard.writeText(text); return 'Copied to clipboard'; } catch (e) {}
+    try { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); return 'Copied to clipboard'; } catch (e) {}
+    return 'Copy failed';
+  };
+
+  const resetStats = () => setHistory([]);
+  const body = {
+    menu: <Menu game={game} lastMode={lastMode} onStart={startGuarded} onContinue={() => setScreen('game')} onCustom={() => { setEditing(null); setScreen('custom'); }} onPlayCfg={(c) => startGuarded(toConfig(c))} configs={configs} />,
+    game: game && <Game key={game.id} game={game} settings={settings} onSubmit={submit} onMenu={menu} onAgain={() => startGuarded(game.config)} onShare={share} finished={finished} />,
+    stats: <Stats history={history} />,
+    history: <HistoryScreen history={history} onOpen={(g) => { setReview(g); setScreen('review'); }} onClear={() => setModal({ confirm: true, text: 'Delete all completed games from history? Statistics are computed from history, so they reset too.', yes: 'Clear history', onYes: () => { setHistory([]); setModal(null); } })} />,
+    review: review && <Review g={review} onBack={() => setScreen('history')} onShare={share} />,
+    custom: <Custom configs={configs} setConfigs={setConfigs} editing={editing} setEditing={setEditing} onStart={startGuarded} />,
+  }[screen];
+
+  return (
+    <div className="app">
+      <header className="hdr">
+        <button className="logo" onClick={() => (screen === 'menu' ? null : menu())} aria-label="CODEBREAKER home"><i aria-hidden="true">{['#E84D4D', '#4385D5', '#45A36B', '#E8C34A'].map((c) => <b key={c} style={{ background: c }} />)}</i>CODEBREAKER</button>
+        <nav className="row" aria-label="Main">
+          {screen !== 'menu' && <button className="ibtn" aria-label="Main menu" title="Menu" onClick={menu}><Ic n="home" /></button>}
+          <button className="ibtn" aria-label="Statistics" title="Statistics" onClick={() => setScreen('stats')}><Ic n="stats" /></button>
+          <button className="ibtn" aria-label="Game history" title="History" onClick={() => setScreen('history')}><Ic n="history" /></button>
+          <button className="ibtn" aria-label="How to play" title="How to play" onClick={() => setModal({ help: true })}><Ic n="help" /></button>
+          <button className="ibtn" aria-label="Settings" title="Settings" onClick={() => setModal({ settings: true })}><Ic n="gear" /></button>
+        </nav>
+      </header>
+      {body}
+      {modal && modal.confirm && <Confirm text={modal.text} yes={modal.yes} onYes={modal.onYes} onNo={() => setModal(null)} />}
+      {modal && modal.help && <Help onClose={() => setModal(null)} />}
+      {modal && modal.settings && <Settings s={settings} up={up} onClose={() => setModal(null)} ask={(m) => setModal({ confirm: true, ...m, onNo: undefined })} resetStats={resetStats} setConfigs={setConfigs} setGame={setGame} setHistory={setHistory} setScreen={setScreen} setModal={setModal} />}
+    </div>
+  );
+}
+
+/* ---------- Menu ---------- */
+function Menu({ game, lastMode, onStart, onContinue, onCustom, configs, onPlayCfg }) {
+  const resume = game && game.status === 'playing' && game.guesses.length > 0;
+  return (
+    <main className="page">
+      <h1>Crack the hidden code.</h1>
+      <p className="muted" style={{ maxWidth: 420 }}>Guess the sequence of colors. After each guess you learn how many are in the right place and how many are in the wrong place.</p>
+      {resume && <div style={{ marginTop: 14 }}><button className="btn pri" onClick={onContinue}>Continue {MODE_NAME[game.config.mode]} game · {game.guesses.length}/{game.config.maxAttempts}</button></div>}
+      <div className="modes" role="list">
+        {MODE_LIST.map((m) => { const c = MODES[m]; return (
+          <button key={m} role="listitem" className="mode" onClick={() => onStart(c)}>
+            <span><b>{MODE_NAME[m]}{m === lastMode && <span className="small muted" style={{ fontFamily: 'var(--body)', fontWeight: 400 }}> · last played</span>}</b><span className="small muted">{c.positionCount} positions · {c.availableColors.length} colors · {c.maxAttempts} attempts</span></span>
+            <span className="dots" aria-hidden="true">{c.availableColors.map((id) => <i key={id} style={{ background: colorOf(id).hex }} />)}</span>
+          </button>); })}
+        <button role="listitem" className="mode" onClick={onCustom}><span><b>Custom</b><span className="small muted">Build your own rules, save them, replay them</span></span><span aria-hidden="true">→</span></button>
+      </div>
+      {configs.length > 0 && <><h3 style={{ marginTop: 26 }}>Saved challenges</h3>
+        <div className="list" style={{ marginTop: 8 }}>{configs.map((c) => <button key={c.id} className="item" onClick={() => onPlayCfg(c)}><span><b>{c.name}</b><br /><span className="small muted">{E.configSummary(c)}</span></span><span aria-hidden="true">Play →</span></button>)}</div></>}
+    </main>
+  );
+}
+
+/* ---------- Game ---------- */
+function Game({ game, settings, onSubmit, onMenu, onAgain, onShare, finished }) {
+  const { config } = game;
+  const n = config.positionCount;
+  const [cur, setCur] = useState(() => Array(n).fill(null));
+  const [active, setActive] = useState(0);
+  const [err, setErr] = useState('');
+  const [shake, setShake] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const boardRef = useRef(null);
+  const left = config.maxAttempts - game.guesses.length;
+  const full = cur.every(Boolean);
+  const playing = game.status === 'playing';
+
+  useEffect(() => { if (boardRef.current) boardRef.current.scrollTop = boardRef.current.scrollHeight; }, [game.guesses.length]);
+  useEffect(() => { if (finished) { const t = setTimeout(() => setShowResult(true), settings.anim ? 650 : 0); return () => clearTimeout(t); } }, [finished]);
+
+  const put = useCallback((id) => {
+    if (!playing) return;
+    setErr('');
+    setCur((c) => {
+      const next = c.slice(); next[active] = id;
+      const nx = next.findIndex((v, i) => !v && i > active); const any = next.findIndex((v) => !v);
+      setActive(nx !== -1 ? nx : any !== -1 ? any : active);
+      return next;
+    });
+    beep(settings.sound, 520, 0.04);
+  }, [active, playing, settings.sound]);
+  const removeAt = useCallback((i) => { setCur((c) => { const x = c.slice(); x[i] = null; return x; }); setActive(i); setErr(''); }, []);
+  const clear = () => { setCur(Array(n).fill(null)); setActive(0); setErr(''); };
+  const doSubmit = useCallback(() => {
+    if (!playing) return;
+    if (!cur.every(Boolean)) { setErr(`Fill all ${n} positions first.`); setShake(true); setTimeout(() => setShake(false), 300); return; }
+    const e = onSubmit(cur);
+    if (e) setErr(e); else { setCur(Array(n).fill(null)); setActive(0); setErr(''); }
+  }, [cur, n, onSubmit, playing]);
+
+  useEffect(() => {
+    const f = (e) => {
+      if (e.target.closest && e.target.closest('[role=dialog]')) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = e.target.tagName;
+      if (e.key === 'Enter' && (tag === 'BUTTON')) return;
+      const ids = config.availableColors;
+      if (/^[0-9]$/.test(e.key)) { const idx = e.key === '0' ? 9 : Number(e.key) - 1; if (idx < ids.length) { e.preventDefault(); put(ids[idx]); } }
+      else if (e.key === 'Enter') { e.preventDefault(); doSubmit(); }
+      else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); const last = cur.map((v, i) => (v ? i : -1)).filter((i) => i >= 0); if (cur[active]) removeAt(active); else if (last.length) removeAt(last[last.length - 1]); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); setActive((a) => Math.min(n - 1, a + 1)); }
+      else if (e.key === 'Escape') clear();
+    };
+    window.addEventListener('keydown', f); return () => window.removeEventListener('keydown', f);
+  });
+
+  return (
+    <main style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <div className="info">
+        <span className="chip">{MODE_NAME[config.mode]}</span>
+        <span className="small muted" aria-live="polite">{n} positions · {left} {left === 1 ? 'attempt' : 'attempts'} left</span>
+      </div>
+      <div className="pips" aria-hidden="true">{Array.from({ length: config.maxAttempts }, (_, i) => <span key={i} className={i < game.guesses.length ? 'on' : ''} />)}</div>
+      <div className="board" ref={boardRef} role="list" aria-label="Guess history">
+        {game.guesses.length === 0 && <p className="muted" style={{ margin: 'auto', textAlign: 'center', maxWidth: 300 }}>Pick {n} colors{config.allowDuplicates ? ' (repeats allowed)' : ' (no repeats)'} and press Submit. <br /><span className="small">■ right color, right place · ○ right color, wrong place</span></p>}
+        {game.guesses.map((g, i) => <GuessRow key={i} g={g} n={i + 1} positions={n} reveal={settings.anim} />)}
+        {finished && !showResult && game.status === 'lost' && <div className="guess" aria-label="Secret"><span className="n">?</span><div className="pegs">{game.secret.map((c, i) => <Tile key={i} id={c} size={n > 5 ? 'sm' : undefined} style={{ animation: `pop .3s ${i * 90}ms both` }} />)}</div></div>}
+      </div>
+      {playing ? (
+        <section className="input" aria-label="Your guess">
+          <div className={'slots' + (shake ? ' shake' : '')} role="group" aria-label="Current guess">
+            {cur.map((c, i) => (
+              <Tile key={i} id={c} role="button" tabIndex={0} className={'slot' + (c ? ' filled' : '') + (i === active ? ' active' : '')}
+                aria-label={`Position ${i + 1}: ${c ? colorOf(c).name + '. Press to select, Backspace to remove' : 'empty'}`}
+                onClick={() => (i === active && c ? removeAt(i) : setActive(i))}
+                onKeyDown={(e) => { if (e.key === ' ' ) { e.preventDefault(); setActive(i); } }}
+                style={c ? { animation: 'pop .15s' } : undefined} />
+            ))}
+          </div>
+          <div className="palette" role="group" aria-label="Colors">
+            {config.availableColors.map((id, i) => (
+              <Tile key={id} id={id} role="button" tabIndex={0} aria-label={`${colorOf(id).name}, key ${(i + 1) % 10}`} onClick={() => put(id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); put(id); } }}>
+                <span className="key" aria-hidden="true">{(i + 1) % 10}</span>
+              </Tile>
+            ))}
+          </div>
+          <div className="err" role="alert">{err}</div>
+          <div className="btns">
+            <button className="btn ghost" onClick={clear} disabled={!cur.some(Boolean)}>Clear</button>
+            <button className="btn pri" onClick={doSubmit} aria-disabled={!full}>Submit guess</button>
+          </div>
+        </section>
+      ) : (
+        <section className="input"><div className="btns"><button className="btn pri" onClick={() => setShowResult(true)}>View result</button></div></section>
+      )}
+      {finished && showResult && <Result game={game} onClose={() => setShowResult(false)} onAgain={onAgain} onMenu={onMenu} onShare={onShare} anim={settings.anim} />}
+    </main>
+  );
+}
+
+function Result({ game, onClose, onAgain, onMenu, onShare, anim }) {
+  const won = game.status === 'won';
+  const [msg, setMsg] = useState('');
+  const used = game.guesses.length, max = game.config.maxAttempts;
+  const perf = won ? (used === 1 ? 'Unbelievable first guess.' : used <= Math.ceil(max / 3) ? 'Sharp deduction.' : used < max ? 'Solid work.' : 'Cracked it on the last attempt.') : `The code held. Your best guess had ${Math.max(...game.guesses.map((g) => g.fb.exact), 0)} in the right place.`;
+  return (
+    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal result" role="dialog" aria-modal="true" aria-label={won ? 'Victory' : 'Game over'} style={{ position: 'relative', overflow: 'hidden' }}>
+        {won && anim && <div className="celebrate" aria-hidden="true">{Array.from({ length: 28 }, (_, i) => <i key={i} style={{ left: (i * 37) % 100 + '%', background: PALETTE[i % 6].hex, animationDelay: (i % 7) * 70 + 'ms' }} />)}</div>}
+        <button className="ibtn" aria-label="Close result" onClick={onClose} style={{ position: 'absolute', right: 10, top: 10 }}><Ic n="x" /></button>
+        <h2>{won ? 'Code cracked.' : 'Game over.'}</h2>
+        <div className="pegs" style={{ flex: 'none', justifyContent: 'center', flexWrap: 'wrap' }} role="img" aria-label={'Secret: ' + game.secret.map((c) => colorOf(c).name).join(', ')}>{game.secret.map((c, i) => <Tile key={i} id={c} style={{ animation: `pop .3s ${i * 90}ms both` }} />)}</div>
+        <div><b style={{ fontFamily: 'var(--display)', fontSize: 28 }}>{used}</b><span className="muted"> of {max} attempts used</span></div>
+        <div className="muted">{perf}</div>
+        <div className="btns">
+          {won && <button className="btn ghost" onClick={async () => setMsg(await onShare({ ...game, won }))}><Ic n="share" size={16} />Share result</button>}
+          <button className="btn pri" onClick={onAgain}><Ic n="redo" size={16} />{won ? 'Play again' : 'Retry'}</button>
+          <button className="btn ghost" onClick={onMenu}>Main menu</button>
+        </div>
+        {!won && <button className="btn ghost" onClick={async () => setMsg(await onShare({ ...game, won }))}><Ic n="share" size={16} />Share result</button>}
+        <div className="small muted" aria-live="polite" style={{ minHeight: 18 }}>{msg}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Stats ---------- */
+function Stats({ history }) {
+  const [tab, setTab] = useState('classic');
+  const games = history.filter((g) => g.config.mode === tab);
+  const s = E.calculateStatistics(games.map((g) => ({ won: g.won, attempts: g.attempts })));
+  const maxA = tab === 'custom' ? Math.max(8, ...games.map((g) => g.config.maxAttempts)) : MODES[tab].maxAttempts;
+  const dist = Array.from({ length: maxA }, (_, i) => s.distribution[i + 1] || 0);
+  const top = Math.max(1, ...dist);
+  return (
+    <main className="page">
+      <h2>Statistics</h2>
+      <div className="tabs" role="group" aria-label="Mode">{Object.keys(MODE_NAME).map((m) => <button key={m} className="tab" aria-pressed={tab === m} onClick={() => setTab(m)}>{MODE_NAME[m]}</button>)}</div>
+      <div className="stats">
+        <div className="stat"><b>{s.played}</b><span>Played</span></div><div className="stat"><b>{s.winPct}%</b><span>Win rate</span></div>
+        <div className="stat"><b>{s.currentStreak}</b><span>Current streak</span></div><div className="stat"><b>{s.maxStreak}</b><span>Longest streak</span></div>
+        <div className="stat"><b>{s.won}</b><span>Won</span></div><div className="stat"><b>{s.lost}</b><span>Lost</span></div>
+        <div className="stat"><b>{s.won ? s.avgAttempts : '–'}</b><span>Avg. attempts (wins)</span></div><div className="stat"><b>{s.best ?? '–'}</b><span>Best solve</span></div>
+      </div>
+      <h3>Guess distribution</h3>
+      {s.won === 0 ? <p className="muted">Win a {MODE_NAME[tab]} game to see your distribution.</p> :
+        <div className="bars" style={{ marginTop: 10 }}>{dist.map((c, i) => <div className="bar" key={i}><span style={{ width: 20, textAlign: 'right' }}>{i + 1}</span><i className={c ? '' : 'z'} style={{ width: `calc(${(c / top) * 100}% - 40px)`, minWidth: 24 }}>{c}</i></div>)}</div>}
+      {tab === 'custom' && <p className="small muted" style={{ marginTop: 14 }}>Custom games are tracked separately from the preset difficulties.</p>}
+    </main>
+  );
+}
+
+/* ---------- History ---------- */
+const fmtDate = (t) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+function HistoryScreen({ history, onOpen, onClear }) {
+  const list = history.slice().reverse();
+  return (
+    <main className="page">
+      <div className="row" style={{ justifyContent: 'space-between' }}><h2>History</h2>{list.length > 0 && <button className="btn ghost" style={{ height: 36 }} onClick={onClear}>Clear</button>}</div>
+      {list.length === 0 ? <p className="muted">Finished games appear here so you can review how you solved them.</p> :
+        <div className="list" style={{ marginTop: 12 }}>{list.map((g) => (
+          <button key={g.id} className="item" onClick={() => onOpen(g)}>
+            <span><b>{MODE_NAME[g.config.mode]}</b> <span className="muted small">· {fmtDate(g.finishedAt)}</span><br /><span className="small muted">{E.configSummary(g.config)}</span></span>
+            <span className="row" style={{ gap: 10 }}><span className="small muted">{g.attempts}/{g.config.maxAttempts}</span><span className={'badge' + (g.won ? ' w' : '')}>{g.won ? 'WON' : 'LOST'}</span></span>
+          </button>))}</div>}
+    </main>
+  );
+}
+function Review({ g, onBack, onShare }) {
+  const [msg, setMsg] = useState('');
+  return (
+    <main className="page">
+      <button className="btn ghost" style={{ height: 36, marginBottom: 12 }} onClick={onBack}><Ic n="back" size={16} />History</button>
+      <div className="row" style={{ justifyContent: 'space-between' }}><h2>{MODE_NAME[g.config.mode]} · {g.won ? 'Won' : 'Lost'}</h2><span className="muted">{g.attempts}/{g.config.maxAttempts}</span></div>
+      <p className="small muted">{E.configSummary(g.config)}</p>
+      <h3 style={{ margin: '14px 0 8px' }}>Secret</h3>
+      <div className="pegs" style={{ marginBottom: 16 }}>{g.secret.map((c, i) => <Tile key={i} id={c} size={g.config.positionCount > 5 ? 'sm' : undefined} aria-label={colorOf(c).name} />)}</div>
+      <h3 style={{ marginBottom: 8 }}>Your guesses</h3>
+      <div className="board" role="list" style={{ overflow: 'visible' }}>{g.guesses.map((x, i) => <GuessRow key={i} g={x} n={i + 1} positions={g.config.positionCount} reveal={false} />)}</div>
+      <div style={{ marginTop: 16 }} className="row"><button className="btn ghost" onClick={async () => setMsg(await onShare(g))}><Ic n="share" size={16} />Share</button><span className="small muted" style={{ marginLeft: 12 }} aria-live="polite">{msg}</span></div>
+    </main>
+  );
+}
+
+/* ---------- Custom builder ---------- */
+function Custom({ configs, setConfigs, editing, setEditing, onStart }) {
+  const init = editing ? configs.find((c) => c.id === editing) : null;
+  const [f, setF] = useState(() => init ? { ...init } : { name: '', positionCount: 4, availableColors: E.PALETTE.slice(0, 6).map((c) => c.id), maxAttempts: 10, allowDuplicates: true });
+  const [name, setName] = useState(init ? init.name : '');
+  const [errs, setErrs] = useState([]);
+  const [confirmDel, setConfirmDel] = useState(null);
+  const cfg = toConfig(f);
+  const live = E.validateConfig(cfg);
+  const toggleColor = (id) => setF((x) => ({ ...x, availableColors: x.availableColors.includes(id) ? x.availableColors.filter((c) => c !== id) : PALETTE.map((p) => p.id).filter((p) => x.availableColors.includes(p) || p === id) }));
+  const startIt = () => { const e = onStart(cfg); if (e && e.length) setErrs(e); };
+  const saveIt = () => {
+    if (live.length) { setErrs(live); return; }
+    const nm = name.trim() || 'My challenge';
+    if (editing) setConfigs((c) => c.map((x) => (x.id === editing ? { ...x, ...cfg, name: nm, mode: undefined } : x)));
+    else setConfigs((c) => [...c, { id: uid(), name: nm, positionCount: f.positionCount, availableColors: f.availableColors, maxAttempts: f.maxAttempts, allowDuplicates: f.allowDuplicates }]);
+    setEditing(null); setName(''); setErrs([]);
+  };
+  const edit = (c) => { setEditing(c.id); setF({ ...c }); setName(c.name); setErrs([]); window.scrollTo(0, 0); };
+  useEffect(() => { setErrs([]); }, [f]);
+  return (
+    <main className="page">
+      <h2>Custom game</h2>
+      <div className="field"><label htmlFor="pos">Positions <b>{f.positionCount}</b></label><div style={{ width: '55%' }}><input id="pos" type="range" min={LIMITS.posMin} max={LIMITS.posMax} value={f.positionCount} onChange={(e) => setF({ ...f, positionCount: +e.target.value })} /></div></div>
+      <div className="field"><label htmlFor="att">Attempts <b>{f.maxAttempts}</b></label><div style={{ width: '55%' }}><input id="att" type="range" min={LIMITS.attMin} max={LIMITS.attMax} value={f.maxAttempts} onChange={(e) => setF({ ...f, maxAttempts: +e.target.value })} /></div></div>
+      <Switch id="dup" on={f.allowDuplicates} set={(v) => setF({ ...f, allowDuplicates: v })} label="Allow repeated colors" />
+      <div style={{ padding: '12px 0' }}>
+        <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}><span>Colors <b>{f.availableColors.length}</b> <span className="small muted">({LIMITS.colMin}–{LIMITS.colMax})</span></span></div>
+        <div className="pick" role="group" aria-label="Available colors">{PALETTE.map((c) => <Tile key={c.id} id={c.id} role="button" tabIndex={0} aria-pressed={f.availableColors.includes(c.id)} aria-label={c.name} onClick={() => toggleColor(c.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleColor(c.id); } }} />)}</div>
+      </div>
+      <div className="cfg"><b>Summary</b><div className="muted">{cfg.positionCount} positions · {cfg.availableColors.length} colors · {cfg.maxAttempts} attempts · {cfg.allowDuplicates ? 'repeats allowed' : 'unique colors only'}</div>
+        <div className="err" role="alert" style={{ textAlign: 'left', marginTop: 6 }}>{(errs.length ? errs : live).map((e, i) => <div key={i}>{e}</div>)}</div></div>
+      <button className="btn pri" style={{ width: '100%', height: 52, fontSize: 17 }} onClick={startIt} disabled={live.length > 0}>START GAME</button>
+      <div className="row" style={{ gap: 8, marginTop: 14 }}>
+        <input type="text" aria-label="Configuration name" placeholder="Name this setup to save it" value={name} onChange={(e) => setName(e.target.value)} maxLength={28} />
+        <button className="btn ghost" style={{ flex: 'none' }} onClick={saveIt} disabled={live.length > 0}>{editing ? 'Update' : 'Save'}</button>
+        {editing && <button className="btn ghost" style={{ flex: 'none' }} onClick={() => { setEditing(null); setName(''); }}>New</button>}
+      </div>
+      <h3 style={{ marginTop: 28 }}>Saved</h3>
+      {configs.length === 0 ? <p className="muted">No saved setups yet.</p> :
+        <div className="list" style={{ marginTop: 8 }}>{configs.map((c) => (
+          <div key={c.id} className="item" style={{ cursor: 'default' }}>
+            <span><b>{c.name}</b>{editing === c.id && <span className="small muted"> · editing</span>}<br /><span className="small muted">{E.configSummary(c)}</span></span>
+            <span className="row" style={{ gap: 4 }}>
+              <button className="btn ghost" style={{ height: 34, padding: '0 12px' }} onClick={() => onStart(toConfig(c))}>Play</button>
+              <button className="btn ghost" style={{ height: 34, padding: '0 12px' }} onClick={() => edit(c)}>Edit</button>
+              <button className="ibtn" style={{ width: 34, height: 34 }} aria-label={`Delete ${c.name}`} onClick={() => setConfirmDel(c)}><Ic n="x" size={16} /></button>
+            </span>
+          </div>))}</div>}
+      {confirmDel && <Confirm text={`Delete “${confirmDel.name}”?`} yes="Delete" onNo={() => setConfirmDel(null)} onYes={() => { setConfigs((c) => c.filter((x) => x.id !== confirmDel.id)); if (editing === confirmDel.id) setEditing(null); setConfirmDel(null); }} />}
+    </main>
+  );
+}
+
+/* ---------- Settings & Help ---------- */
+function Settings({ s, up, onClose, resetStats, setConfigs, setGame, setHistory, setScreen, setModal }) {
+  const ask = (text, yes, fn) => setModal({ confirm: true, text, yes, onYes: () => { fn(); setModal(null); } });
+  return (
+    <Modal title="Settings" onClose={onClose}>
+      <div className="field"><span>Theme</span><div className="tabs" style={{ margin: 0 }} role="group" aria-label="Theme">{['auto', 'light', 'dark'].map((t) => <button key={t} className="tab" aria-pressed={s.theme === t} onClick={() => up({ theme: t })}>{t[0].toUpperCase() + t.slice(1)}</button>)}</div></div>
+      <Switch id="snd" on={s.sound} set={(v) => up({ sound: v })} label="Sound effects" />
+      <Switch id="anm" on={s.anim} set={(v) => up({ anim: v })} label="Animations" />
+      <Switch id="hc" on={s.contrast} set={(v) => up({ contrast: v })} label="High contrast" />
+      <div className="field" style={{ flexDirection: 'column', alignItems: 'stretch', borderBottom: 0, gap: 8 }}>
+        <button className="btn ghost" onClick={() => ask('Reset all statistics? This also removes game history.', 'Reset statistics', () => { setHistory([]); })}>Reset statistics</button>
+        <button className="btn ghost" onClick={() => ask('Delete all saved custom configurations?', 'Clear configurations', () => setConfigs([]))}>Clear saved configurations</button>
+        <button className="btn ghost" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => ask('Erase everything: games, history, statistics, saved configurations and settings?', 'Reset everything', () => { ['game', 'history', 'settings', 'configs', 'last'].forEach((k) => del(K[k])); setGame(null); setHistory([]); setConfigs(DEFAULT_PRESETS); up({ theme: 'auto', sound: true, anim: true, contrast: false }); setScreen('menu'); })}>Reset all data</button>
+      </div>
+    </Modal>
+  );
+}
+function Help({ onClose }) {
+  return (
+    <Modal title="How to play" onClose={onClose}>
+      <p>The computer picks a secret sequence of colors. Guess it in as few attempts as you can.</p>
+      <p className="row" style={{ gap: 10 }}><span className="pk ex" style={{ flex: 'none' }} /><span><b>Square</b>: a right color in the right position.</span></p>
+      <p className="row" style={{ gap: 10 }}><span className="pk mp" style={{ flex: 'none' }} /><span><b>Ring</b>: a right color in the wrong position.</span></p>
+      <p className="row" style={{ gap: 10 }}><span className="pk no" style={{ flex: 'none' }} /><span><b>Dot</b>: nothing matched.</span></p>
+      <p className="muted small">Clues are totals only. They never say which of your colors earned them. A color is never counted more times than it appears in the secret.</p>
+      <p className="small"><b>Keys:</b> 1–9, 0 pick a color · Backspace remove · ←/→ move · Enter submit · Esc clear.</p>
+    </Modal>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body></html>
